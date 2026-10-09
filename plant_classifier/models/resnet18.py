@@ -1,4 +1,4 @@
-"""ResNet18 迁移学习模型及图像预处理。"""
+"""ResNet 迁移学习模型及图像预处理。"""
 
 from torchvision import models, transforms
 from torch import nn
@@ -9,12 +9,22 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 def build_model(
-    num_classes: int, pretrained: bool = True, fine_tune_all: bool = False
+    num_classes: int,
+    pretrained: bool = True,
+    fine_tune_all: bool = False,
+    model_name: str = "resnet18",
 ) -> nn.Module:
-    """以 ImageNet ResNet18 初始化，并替换为本实验类别数的分类头。"""
+    """创建 ImageNet 初始化的 ResNet18/50，并替换分类头。"""
 
-    weights = models.ResNet18_Weights.DEFAULT if pretrained else None
-    model = models.resnet18(weights=weights)
+    model_factories = {
+        "resnet18": (models.resnet18, models.ResNet18_Weights.DEFAULT),
+        "resnet50": (models.resnet50, models.ResNet50_Weights.DEFAULT),
+    }
+    if model_name not in model_factories:
+        raise ValueError(f"暂不支持模型 {model_name!r}，可选：{tuple(model_factories)}")
+
+    model_factory, weights_type = model_factories[model_name]
+    model = model_factory(weights=weights_type if pretrained else None)
 
     if pretrained and not fine_tune_all:
         # 小样本下先保留通用低层特征，只微调高层和新分类头，降低过拟合风险。
@@ -37,11 +47,13 @@ def make_train_transform(image_size: int = 224):
 
     return transforms.Compose(
         [
-            transforms.RandomResizedCrop(image_size, scale=(0.75, 1.0)),
+            transforms.RandomResizedCrop(
+                image_size, scale=(0.85, 1.0), ratio=(0.9, 1.1)
+            ),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
-            transforms.RandomRotation(degrees=20),
-            transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.12),
+            transforms.RandomRotation(degrees=180),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.15),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ]

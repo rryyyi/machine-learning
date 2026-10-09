@@ -27,6 +27,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-size", type=int, default=224)
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
+    parser.add_argument(
+        "--model", choices=("resnet18", "resnet50"), default="resnet50"
+    )
     parser.add_argument("--patience", type=int, default=7, help="验证损失早停轮数")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num-workers", type=int, default=0)
@@ -157,6 +160,7 @@ def main() -> None:
         len(data.classes),
         pretrained=args.pretrained,
         fine_tune_all=args.fine_tune_all,
+        model_name=args.model,
     ).to(device)
     if args.pretrained:
         backbone_parameters = [
@@ -208,14 +212,17 @@ def main() -> None:
             f"val loss {val_loss:.4f}, acc {val_accuracy:.3f} | lr {current_lrs}"
         )
 
-        # 以验证损失选择检查点，避免只追逐小验证集上的单次准确率波动。
-        if val_loss < best_val_loss - 1e-4:
+        # 课程排行榜按准确率评分；准确率相同时再用验证损失打破平局。
+        is_better = val_accuracy > best_val_accuracy or (
+            val_accuracy == best_val_accuracy and val_loss < best_val_loss - 1e-4
+        )
+        if is_better:
             best_val_loss = val_loss
             best_val_accuracy = val_accuracy
             best_epoch = epoch
             stale_epochs = 0
             checkpoint = {
-                "model_name": "resnet18",
+                "model_name": args.model,
                 "state_dict": {
                     key: value.detach().cpu() for key, value in model.state_dict().items()
                 },
