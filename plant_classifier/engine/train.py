@@ -12,8 +12,8 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Subset
 
-from plant_data import PlantImageDataset, load_plant_data, stratified_split_indices
-from plant_model import build_model, make_eval_transform, make_train_transform
+from ..data import PlantImageDataset, load_plant_data, stratified_split_indices
+from ..models.resnet18 import build_model, make_eval_transform, make_train_transform
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="使用 ImageNet 预训练权重；离线时可传 --no-pretrained",
     )
+    parser.add_argument(
+        "--fine-tune-all",
+        action="store_true",
+        help="解冻整个预训练网络（建议使用较小 learning-rate）",
+    )
     return parser.parse_args()
 
 
@@ -47,10 +52,10 @@ def seed_everything(seed: int) -> None:
 
 
 def train_one_epoch(
-    model, loader, criterion, optimizer, device, pretrained: bool
+    model, loader, criterion, optimizer, device, freeze_early_batch_norm: bool
 ) -> tuple[float, float]:
     model.train()
-    if pretrained:
+    if freeze_early_batch_norm:
         # 冻结层的 BatchNorm 统计量也保持冻结，避免小批量训练破坏预训练特征。
         model.bn1.eval()
         model.layer1.eval()
@@ -148,7 +153,11 @@ def main() -> None:
         pin_memory=pin_memory,
     )
 
-    model = build_model(len(data.classes), pretrained=args.pretrained).to(device)
+    model = build_model(
+        len(data.classes),
+        pretrained=args.pretrained,
+        fine_tune_all=args.fine_tune_all,
+    ).to(device)
     if args.pretrained:
         backbone_parameters = [
             parameter
@@ -183,7 +192,12 @@ def main() -> None:
 
     for epoch in range(1, args.epochs + 1):
         train_loss, train_accuracy = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, args.pretrained
+            model,
+            train_loader,
+            criterion,
+            optimizer,
+            device,
+            args.pretrained and not args.fine_tune_all,
         )
         val_loss, val_accuracy = evaluate(model, val_loader, criterion, device)
         scheduler.step(val_loss)
@@ -208,6 +222,7 @@ def main() -> None:
                 "class_names": list(data.classes),
                 "image_size": args.image_size,
                 "pretrained": args.pretrained,
+                "fine_tune_all": args.fine_tune_all,
                 "best_epoch": best_epoch,
                 "val_loss": best_val_loss,
                 "val_accuracy": best_val_accuracy,

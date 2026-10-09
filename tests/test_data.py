@@ -1,4 +1,3 @@
-import csv
 import io
 import tempfile
 import unittest
@@ -7,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from plant_data import (
+from plant_classifier.data import (
     ImageRecord,
     PlantImageDataset,
     load_plant_data,

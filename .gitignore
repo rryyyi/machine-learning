@@ -2,8 +2,12 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
-data/
+/data/
 outputs/
 checkpoints/
 *.pth
 *.pt
+build/
+dist/
+*.egg-info/
+.pytest_cache/

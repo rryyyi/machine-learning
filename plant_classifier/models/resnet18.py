@@ -8,13 +8,15 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def build_model(num_classes: int, pretrained: bool = True) -> nn.Module:
+def build_model(
+    num_classes: int, pretrained: bool = True, fine_tune_all: bool = False
+) -> nn.Module:
     """以 ImageNet ResNet18 初始化，并替换为本实验类别数的分类头。"""
 
     weights = models.ResNet18_Weights.DEFAULT if pretrained else None
     model = models.resnet18(weights=weights)
 
-    if pretrained:
+    if pretrained and not fine_tune_all:
         # 小样本下先保留通用低层特征，只微调高层和新分类头，降低过拟合风险。
         for parameter in model.parameters():
             parameter.requires_grad = False

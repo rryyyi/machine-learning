@@ -9,13 +9,13 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-from plant_data import (
+from ..data import (
     PlantImageDataset,
     load_plant_data,
     order_test_records,
     read_template_ids,
 )
-from plant_model import build_model, make_eval_transform
+from ..models.resnet18 import build_model, make_eval_transform
 
 
 def parse_args() -> argparse.Namespace:
